@@ -1,0 +1,7 @@
+ストアの種類,インデックスの種類,プロパティデータ長,投入件数,クエリ文字列,該当した件数,処理時間(μs)
+mongo,order,10,100000,select [jcr:path] from [nt:base] where [PROP_A] = 'v000000001',1,2338
+mongo,order,10,100000,select [jcr:path] from [nt:base] where [PROP_A] = 'v000000003',1,873
+mongo,order,10,100000,select [jcr:path] from [nt:base] where [PROP_A] >= 'v000000005' and [PROP_A] < 'v000000010',5,8654404
+mongo,order,10,100000,select [jcr:path] from [nt:base] where [PROP_B] = 'v000000001',100,14539
+mongo,order,10,100000,select [jcr:path] from [nt:base] where [PROP_B] = 'v000000003',100,12218
+mongo,order,10,100000,select [jcr:path] from [nt:base] where [PROP_B] >= 'v000000005' and [PROP_B] < 'v000000010',500,62140

@@ -21,31 +21,73 @@ import static org.apache.jackrabbit.JcrConstants.JCR_MIXINTYPES;
 import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
 import static org.apache.jackrabbit.oak.plugins.index.IndexUtils.createIndexDefinition;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.jackrabbit.oak.Oak;
 import org.apache.jackrabbit.oak.api.ContentRepository;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.plugins.index.property.PropertyIndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.nodetype.write.InitialContent;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.query.AbstractQueryTest;
 import org.apache.jackrabbit.oak.spi.security.OpenSecurityProvider;
+import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.apache.jackrabbit.oak.util.NodeUtil;
+import org.junit.After;
 import org.junit.Test;
+
+import forstudy.PocMarking;
 
 /**
  * Tests the node type index implementation.
  */
+@PocMarking
 public class NodeTypeIndexQueryTest extends AbstractQueryTest {
+	public NodeTypeIndexQueryTest SRC_REF;
 
-    @Override
+	class OakTest extends Oak {
+		public OakTest(NodeStore ns) {
+			super(ns);
+		}
+	}
+
+	private FileStore fs;
+	private NodeStore ns;
+
+	private void flush() {
+		try {
+			fs.flush();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+    }
+
+    @After
+    public void teardonw() {
+    	flush();
+    }
+
+	@Override
     protected ContentRepository createRepository() {
-        return new Oak().with(new InitialContent())
-                .with(new OpenSecurityProvider())
-                .with(new NodeTypeIndexProvider())
-                .with(new PropertyIndexEditorProvider())
-                .createContentRepository();
+		try {
+			File f = new File("./FS/" + NodeTypeIndexQueryTest.class.getName());
+			FileUtils.forceMkdir(f);
+			FileUtils.cleanDirectory(f);
+			fs = new FileStore(f, 1);
+			ns = new SegmentNodeStore(fs);
+	        return new OakTest(ns).with(new InitialContent())
+	                .with(new OpenSecurityProvider())
+	                .with(new NodeTypeIndexProvider())
+	                .with(new PropertyIndexEditorProvider())
+	                .createContentRepository();
+		} catch (Throwable th) {
+			throw new RuntimeException(th);
+		}
     }
 
     private static void child(Tree t, String n, String type) {

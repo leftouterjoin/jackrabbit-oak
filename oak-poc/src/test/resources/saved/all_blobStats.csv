@@ -1,0 +1,11 @@
+ストアの種類,インデックスの種類,プロパティデータ長,投入件数,パス,ノードサイズ,処理時間(μs)
+mongo,lucene,10,100000,/oak:index/PROP_A,14665728,758
+mongo,lucene,10,100000,/oak:index/PROP_B,27236352,164
+mongo,lucene,10,200000,/oak:index/PROP_A,39806976,856
+mongo,lucene,10,200000,/oak:index/PROP_B,27236352,194
+mongo,lucene,10,400000,/oak:index/PROP_A,52377600,772
+mongo,lucene,10,400000,/oak:index/PROP_B,50282496,241
+mongo,lucene,20,100000,/oak:index/PROP_A,14665728,699
+mongo,lucene,20,100000,/oak:index/PROP_B,27236352,192
+mongo,lucene,40,100000,/oak:index/PROP_A,17808384,783
+mongo,lucene,40,100000,/oak:index/PROP_B,27236352,282

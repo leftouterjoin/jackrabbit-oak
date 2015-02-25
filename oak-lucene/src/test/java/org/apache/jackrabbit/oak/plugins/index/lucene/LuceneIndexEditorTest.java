@@ -19,6 +19,22 @@
 
 package org.apache.jackrabbit.oak.plugins.index.lucene;
 
+import static com.google.common.collect.ImmutableSet.of;
+import static javax.jcr.PropertyType.TYPENAME_STRING;
+import static org.apache.jackrabbit.oak.api.Type.STRINGS;
+import static org.apache.jackrabbit.oak.plugins.index.IndexConstants.INDEX_DEFINITIONS_NAME;
+import static org.apache.jackrabbit.oak.plugins.index.lucene.FieldNames.PATH;
+import static org.apache.jackrabbit.oak.plugins.index.lucene.LuceneIndexConstants.INCLUDE_PROPERTY_NAMES;
+import static org.apache.jackrabbit.oak.plugins.index.lucene.LuceneIndexConstants.VERSION;
+import static org.apache.jackrabbit.oak.plugins.index.lucene.TestUtil.newLuceneIndexDefinitionV2;
+import static org.apache.jackrabbit.oak.plugins.index.lucene.util.LuceneIndexHelper.newLuceneIndexDefinition;
+import static org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState.EMPTY_NODE;
+import static org.apache.jackrabbit.oak.plugins.memory.PropertyStates.createProperty;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
+
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -27,10 +43,13 @@ import java.util.Calendar;
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateProvider;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
 import org.apache.jackrabbit.oak.spi.commit.EditorHook;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
+import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.apache.jackrabbit.test.ISO8601;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.Term;
@@ -43,37 +62,46 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
-import static com.google.common.collect.ImmutableSet.of;
-import static javax.jcr.PropertyType.TYPENAME_STRING;
-import static org.apache.jackrabbit.oak.api.Type.STRINGS;
-import static org.apache.jackrabbit.oak.plugins.index.IndexConstants.INDEX_DEFINITIONS_NAME;
-import static org.apache.jackrabbit.oak.plugins.index.lucene.FieldNames.PATH;
-import static org.apache.jackrabbit.oak.plugins.index.lucene.LuceneIndexConstants.INCLUDE_PROPERTY_NAMES;
-import static org.apache.jackrabbit.oak.plugins.index.lucene.LuceneIndexConstants.VERSION;
-import static org.apache.jackrabbit.oak.plugins.index.lucene.TestUtil.newLuceneIndexDefinitionV2;
-import static org.apache.jackrabbit.oak.plugins.index.lucene.util.LuceneIndexHelper.newLuceneIndexDefinition;
-import static org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState.EMPTY_NODE;
-import static org.apache.jackrabbit.oak.plugins.memory.PropertyStates.createProperty;
-import static org.apache.jackrabbit.oak.plugins.nodetype.write.InitialContent.INITIAL_CONTENT;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
+import forstudy.ContextRunner;
+import forstudy.PocMarking;
+import forstudy.TestHelpers;
 
+@RunWith(ContextRunner.class)
+@PocMarking
 public class LuceneIndexEditorTest {
     private static final EditorHook HOOK = new EditorHook(
             new IndexUpdateProvider(
                     new LuceneIndexEditorProvider()));
 
-    private NodeState root = INITIAL_CONTENT;
+    private NodeState root = null;// ★
 
-    private NodeBuilder builder = root.builder();
+    private NodeBuilder builder = null;// ★
 
     private IndexTracker tracker = new IndexTracker();
 
     private IndexNode indexNode;
+
+	FileStore fs;// ★
+	NodeStore store;// ★
+
+	@Before
+	public void setup() {// ★
+		fs = TestHelpers.createFileStore();// ★
+		store = new SegmentNodeStore(fs);// ★
+		root = store.getRoot();//★
+		builder = root.builder();//★
+	}
+
+	@After
+	public void teardown() throws Throwable {// ★
+		store.merge(builder, HOOK, CommitInfo.EMPTY);// ★
+		fs.flush();// ★
+		fs.close();// ★
+	}
 
     @Test
     public void testLuceneWithFullText() throws Exception {
@@ -87,6 +115,8 @@ public class LuceneIndexEditorTest {
         NodeState after = builder.getNodeState();
 
         NodeState indexed = HOOK.processCommit(before, after, CommitInfo.EMPTY);
+		store.merge(builder, HOOK, CommitInfo.EMPTY);// ★
+//        NodeState indexed = store.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);//★
         tracker.update(indexed);
 
         //system fields starts with ':' so need to be escaped

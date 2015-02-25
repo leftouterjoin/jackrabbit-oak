@@ -46,8 +46,10 @@ import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 
+import forstudy.PocMarking;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+@PocMarking
 public class TestUtil {
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
@@ -58,11 +60,11 @@ public class TestUtil {
             " - * (UNDEFINED)\n" +
             " + * (nt:base) = oak:TestNode VERSION";
 
-    static void useV2(NodeBuilder idxNb) {
+    public static void useV2(NodeBuilder idxNb) {
         idxNb.setProperty(LuceneIndexConstants.COMPAT_MODE, IndexFormatVersion.V2.getVersion());
     }
 
-    static void useV2(Tree idxTree) {
+    public static void useV2(Tree idxTree) {
         idxTree.setProperty(LuceneIndexConstants.COMPAT_MODE, IndexFormatVersion.V2.getVersion());
     }
 

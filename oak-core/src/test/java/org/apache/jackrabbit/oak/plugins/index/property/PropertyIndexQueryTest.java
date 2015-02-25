@@ -34,29 +34,51 @@ import org.apache.jackrabbit.oak.api.PropertyValue;
 import org.apache.jackrabbit.oak.api.ResultRow;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.plugins.nodetype.write.InitialContent;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.query.AbstractQueryTest;
 import org.apache.jackrabbit.oak.spi.lifecycle.RepositoryInitializer;
 import org.apache.jackrabbit.oak.spi.query.PropertyValues;
 import org.apache.jackrabbit.oak.spi.security.OpenSecurityProvider;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
+import org.apache.jackrabbit.oak.spi.state.NodeStore;
+import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import com.google.common.collect.ImmutableSet;
+
+import forstudy.ContextRunner;
+import forstudy.PocMarking;
+import forstudy.TestHelpers;
 
 /**
  * Tests the query engine using the default index implementation: the
  * {@link PropertyIndexProvider}
  */
+@RunWith(ContextRunner.class)
+@PocMarking
 public class PropertyIndexQueryTest extends AbstractQueryTest {
+	public PropertyIndexQueryTest SRC_REF;//★
+	FileStore fs;//★
+	NodeStore store;//★
 
     @Override
     protected ContentRepository createRepository() {
-        return new Oak().with(new InitialContent())
+        fs = TestHelpers.createFileStore();//★
+        store = new SegmentNodeStore(fs);//★
+        return new Oak(store).with(new InitialContent())
                 .with(new OpenSecurityProvider())
                 .with(new PropertyIndexProvider())
                 .with(new PropertyIndexEditorProvider())
                 .createContentRepository();
+    }
+
+    @After
+    public void teardown() throws Throwable {//★
+        fs.flush();//★
+        fs.close();//★
     }
 
     @Test

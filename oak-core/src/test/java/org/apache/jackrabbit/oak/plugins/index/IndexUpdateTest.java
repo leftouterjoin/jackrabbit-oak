@@ -26,7 +26,6 @@ import static org.apache.jackrabbit.oak.plugins.index.IndexConstants.REINDEX_ASY
 import static org.apache.jackrabbit.oak.plugins.index.IndexConstants.REINDEX_PROPERTY_NAME;
 import static org.apache.jackrabbit.oak.plugins.index.IndexUtils.createIndexDefinition;
 import static org.apache.jackrabbit.oak.plugins.nodetype.NodeTypeConstants.JCR_NODE_TYPES;
-import static org.apache.jackrabbit.oak.plugins.nodetype.write.InitialContent.INITIAL_CONTENT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -40,8 +39,8 @@ import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.plugins.index.property.PropertyIndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.property.PropertyIndexLookup;
-import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
-import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.query.QueryEngineSettings;
 import org.apache.jackrabbit.oak.query.ast.SelectorImpl;
 import org.apache.jackrabbit.oak.query.index.FilterImpl;
@@ -53,19 +52,48 @@ import org.apache.jackrabbit.oak.spi.query.PropertyValues;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import forstudy.ContextRunner;
+import forstudy.PocMarking;
+import forstudy.TestHelpers;
+import forstudy.TestSpec;
+import forstudy.TestSpec.Confirmatin;
+
+@RunWith(ContextRunner.class)
+@PocMarking
 public class IndexUpdateTest {
 
     private static final EditorHook HOOK = new EditorHook(
             new IndexUpdateProvider(new PropertyIndexEditorProvider()));
 
-    private NodeState root = INITIAL_CONTENT;
+    FileStore fs;// ★
+    NodeStore store;// ★
 
-    private NodeBuilder builder = root.builder();
+    private NodeState root;// ★
+
+    private NodeBuilder builder;// ★
+
+    @Before
+    public void setup() {
+        fs = TestHelpers.createFileStore();// ★
+        store = new SegmentNodeStore(fs);// ★
+        root = store.getRoot();// ★
+        builder = root.builder();// ★
+    }
+
+    @After
+    public void teardown() throws Throwable {
+        store.merge(builder, HOOK, CommitInfo.EMPTY);// ★
+        fs.flush();// ★
+        fs.close();// ★
+    }
 
     /**
      * Simple Test
@@ -124,6 +152,7 @@ public class IndexUpdateTest {
     @Test
     public void testReindex() throws Exception {
         builder.child("testRoot").setProperty("foo", "abc");
+        builder.child("testRoot1").setProperty("foo", "abce");
         NodeState before = builder.getNodeState();
         createIndexDefinition(builder.child(INDEX_DEFINITIONS_NAME),
                 "rootIndex", true, false, ImmutableSet.of("foo"), null);
@@ -216,8 +245,10 @@ public class IndexUpdateTest {
 
     @Test
     public void testReindexHidden() throws Exception {
-        NodeState before = EmptyNodeState.EMPTY_NODE;
-        NodeBuilder builder = before.builder();
+        // NodeState before = EmptyNodeState.EMPTY_NODE;
+        // NodeBuilder builder = before.builder();
+        NodeBuilder builder = this.builder;
+        NodeState before = builder.getNodeState();
         builder.child(":testRoot").setProperty("foo", "abc");
         createIndexDefinition(builder.child(INDEX_DEFINITIONS_NAME),
                 "rootIndex", false, false, ImmutableSet.of("foo"), null);
@@ -308,11 +339,24 @@ public class IndexUpdateTest {
      * </ul>
      */
     @Test
+    @TestSpec(objective = { "非同期インデックスリビルドの動作とタイミングを確認する" }, confirmatins = {
+            @Confirmatin(operation = "/oak:index/foo/@reindex-async=trueでインデックスを定義する"),
+            @Confirmatin(operation = "コンテンツを追加する"),
+            @Confirmatin(operation = "コミット(store.merge)する", expected = "インデックス更新が走らない事"),
+            @Confirmatin(operation = "PropertyIndexLookupでfind", expected = "見つからない事"),
+            @Confirmatin(operation = "AsyncIndexUpdateでrun()", expected = "インデックス更新が走る事"),
+            @Confirmatin(operation = "/oak:index/foo/@asyncを取得", expected = "async-reindexである事"),
+            @Confirmatin(operation = "AsyncIndexUpdateでrun()", expected = "インデックス更新が走らない事"),
+            @Confirmatin(operation = "/oak:index/foo/@asyncを取得", expected = "存在しない事"),
+            @Confirmatin(operation = "コンテンツ追加"),
+            @Confirmatin(operation = "コミット(store.merge)", expected = "インデックス更新が走らない事"),
+            @Confirmatin(operation = "PropertyIndexLookupでfind", expected = "見つかる事") })
     public void testReindexAsync() throws Exception {
         IndexEditorProvider provider = new PropertyIndexEditorProvider();
         EditorHook hook = new EditorHook(new IndexUpdateProvider(provider));
 
-        NodeStore store = new MemoryNodeStore();
+        FileStore fs = TestHelpers.createFileStore();// ★
+        NodeStore store = new SegmentNodeStore(fs);// ★
         NodeBuilder builder = store.getRoot().builder();
 
         createIndexDefinition(builder.child(INDEX_DEFINITIONS_NAME),
@@ -357,6 +401,9 @@ public class IndexUpdateTest {
         PropertyIndexLookup lookup = new PropertyIndexLookup(store.getRoot());
         assertEquals(ImmutableSet.of("testRoot"), find(lookup, "foo",
         "abc"));
+
+        fs.flush();// ★
+        fs.close();// ★
     }
 
     /**
@@ -389,7 +436,14 @@ public class IndexUpdateTest {
     }
 
     @Test
-    public void testReindexCount() throws Exception{
+    @TestSpec(objective = { "インデックスリビルドでreindexCount属性が加算されている事を確認する" }, confirmatins = {
+            @Confirmatin(operation = "/oak:index/rootIndexインデックスを定義する"),
+            @Confirmatin(operation = "コミットする", expected = "インデックスが更新される事"),
+            @Confirmatin(operation = "/oak:index/rootIndex/@reindexCountを取得する"),
+            @Confirmatin(operation = "/oak:index/rootIndex/@reindex=trueに設定する"),
+            @Confirmatin(operation = "コミットする", expected = "インデックスが更新される事"),
+            @Confirmatin(operation = "/oak:index/rootIndex/@reindexCountを取得する", expected = "値が増えている事"), })
+    public void testReindexCount() throws Exception {
         builder.child("testRoot").setProperty("foo", "abc");
         NodeState before = builder.getNodeState();
 

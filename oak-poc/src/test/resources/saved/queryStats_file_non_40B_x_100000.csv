@@ -1,0 +1,7 @@
+ストアの種類,インデックスの種類,プロパティデータ長,投入件数,クエリ文字列,該当した件数,処理時間(μs)
+file,non,40,100000,select [jcr:path] from [nt:base] where [PROP_A] = 'v000000000000000000000000000000000000001',1,361103
+file,non,40,100000,select [jcr:path] from [nt:base] where [PROP_A] = 'v000000000000000000000000000000000000003',1,365147
+file,non,40,100000,select [jcr:path] from [nt:base] where [PROP_A] >= 'v000000000000000000000000000000000000005' and [PROP_A] < 'v000000000000000000000000000000000000010',5,394388
+file,non,40,100000,select [jcr:path] from [nt:base] where [PROP_B] = 'v000000000000000000000000000000000000001',100,326924
+file,non,40,100000,select [jcr:path] from [nt:base] where [PROP_B] = 'v000000000000000000000000000000000000003',100,331173
+file,non,40,100000,select [jcr:path] from [nt:base] where [PROP_B] >= 'v000000000000000000000000000000000000005' and [PROP_B] < 'v000000000000000000000000000000000000010',500,360565

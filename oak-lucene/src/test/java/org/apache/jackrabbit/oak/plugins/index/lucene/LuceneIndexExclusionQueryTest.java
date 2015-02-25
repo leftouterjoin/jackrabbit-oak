@@ -35,18 +35,31 @@ import org.apache.jackrabbit.oak.Oak;
 import org.apache.jackrabbit.oak.api.ContentRepository;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.plugins.nodetype.write.InitialContent;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.query.AbstractQueryTest;
 import org.apache.jackrabbit.oak.spi.commit.Observer;
 import org.apache.jackrabbit.oak.spi.query.QueryIndexProvider;
 import org.apache.jackrabbit.oak.spi.security.OpenSecurityProvider;
+import org.apache.jackrabbit.oak.spi.state.NodeStore;
+import org.junit.After;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import forstudy.ContextRunner;
+import forstudy.PocMarking;
+import forstudy.TestHelpers;
 
 /**
  * Tests the {@link LuceneIndexProvider} exclusion settings
  */
+@RunWith(ContextRunner.class)
+@PocMarking
 public class LuceneIndexExclusionQueryTest extends AbstractQueryTest {
 
     private static final String NOT_IN = "notincluded";
+	FileStore fs;// ★
+	NodeStore store;// ★
 
     @Override
     protected void createTestIndexNode() throws Exception {
@@ -62,13 +75,21 @@ public class LuceneIndexExclusionQueryTest extends AbstractQueryTest {
     @Override
     protected ContentRepository createRepository() {
         LowCostLuceneIndexProvider provider = new LowCostLuceneIndexProvider();
-        return new Oak().with(new InitialContent())
+		fs = TestHelpers.createFileStore();// ★
+		store = new SegmentNodeStore(fs);// ★
+        return new Oak(store).with(new InitialContent())// ★
                 .with(new OpenSecurityProvider())
                 .with((QueryIndexProvider) provider)
                 .with((Observer) provider)
                 .with(new LuceneIndexEditorProvider())
                 .createContentRepository();
     }
+
+	@After
+	public void teardown() throws Throwable {// ★
+		fs.flush();// ★
+		fs.close();// ★
+	}
 
     @Test
     public void ignoreByType() throws Exception {

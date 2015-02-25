@@ -21,6 +21,7 @@ import static org.apache.jackrabbit.oak.plugins.nodetype.NodeTypeConstants.JCR_N
 import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +29,9 @@ import java.util.Set;
 
 import com.google.common.collect.Sets;
 
+import forstudy.PocMarking;
+
+import org.apache.commons.io.FileUtils;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.jackrabbit.oak.api.Blob;
 import org.apache.jackrabbit.oak.api.Type;
@@ -35,8 +39,9 @@ import org.apache.jackrabbit.oak.plugins.index.CompositeIndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.IndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateProvider;
 import org.apache.jackrabbit.oak.plugins.index.property.PropertyIndexEditorProvider;
-import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.plugins.nodetype.write.InitialContent;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.query.QueryEngineSettings;
 import org.apache.jackrabbit.oak.query.ast.SelectorImpl;
 import org.apache.jackrabbit.oak.query.index.FilterImpl;
@@ -48,15 +53,25 @@ import org.apache.jackrabbit.oak.spi.query.Cursors;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 /**
  * {@code NodeTypeIndexTest} performs tests on {@link NodeTypeIndex}.
  */
+@PocMarking
 public class NodeTypeIndexTest {
+	private FileStore fs;
+    private NodeStore store;
 
-    private NodeStore store = new MemoryNodeStore();
+	public NodeTypeIndexTest() throws Throwable {
+		File f = new File("./FS/" + NodeTypeIndexTest.class.getName());
+		FileUtils.forceMkdir(f);
+		FileUtils.cleanDirectory(f);
+		fs = new FileStore(f, 1);
+		store = new SegmentNodeStore(fs);
+    }
 
     @Before
     public void setup() {
@@ -64,6 +79,19 @@ public class NodeTypeIndexTest {
         OakInitializer.initialize(store, new InitialContent(),
                 CompositeIndexEditorProvider
                         .compose(new ArrayList<IndexEditorProvider>()));
+    }
+
+	private void flush() {
+		try {
+			fs.flush();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+    }
+
+    @After
+    public void teardonw() {
+    	flush();
     }
 
     @Test

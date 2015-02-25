@@ -42,7 +42,9 @@ import java.util.Map;
 import javax.jcr.RepositoryException;
 
 import org.apache.jackrabbit.JcrConstants;
+import org.apache.jackrabbit.oak.Oak;
 import org.apache.jackrabbit.oak.api.CommitFailedException;
+import org.apache.jackrabbit.oak.api.ContentRepository;
 import org.apache.jackrabbit.oak.api.PropertyValue;
 import org.apache.jackrabbit.oak.api.ResultRow;
 import org.apache.jackrabbit.oak.api.Tree;
@@ -52,6 +54,9 @@ import org.apache.jackrabbit.oak.plugins.index.IndexUpdateProvider;
 import org.apache.jackrabbit.oak.plugins.index.IndexUtils;
 import org.apache.jackrabbit.oak.plugins.index.property.OrderedIndex.OrderDirection;
 import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
+import org.apache.jackrabbit.oak.plugins.nodetype.write.InitialContent;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.query.QueryEngineSettings;
 import org.apache.jackrabbit.oak.query.ast.Operator;
 import org.apache.jackrabbit.oak.query.ast.SelectorImpl;
@@ -62,11 +67,15 @@ import org.apache.jackrabbit.oak.spi.query.Filter;
 import org.apache.jackrabbit.oak.spi.query.PropertyValues;
 import org.apache.jackrabbit.oak.spi.query.QueryIndex;
 import org.apache.jackrabbit.oak.spi.query.QueryIndex.IndexPlan;
+import org.apache.jackrabbit.oak.spi.security.OpenSecurityProvider;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
+import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.apache.jackrabbit.oak.util.NodeUtil;
+import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,11 +85,37 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
+import forstudy.ContextRunner;
+import forstudy.PocMarking;
+import forstudy.TestHelpers;
+
+@RunWith(ContextRunner.class)
+@PocMarking
 public class OrderedPropertyIndexQueryTest extends BasicOrderedPropertyIndexQueryTest {
     private static final Logger LOG = LoggerFactory.getLogger(OrderedPropertyIndexQueryTest.class);
     
     private static final EditorHook HOOK = new EditorHook(new IndexUpdateProvider(
         new OrderedPropertyIndexEditorProvider()));
+
+	FileStore fs;//★
+	NodeStore store;//★
+
+    @Override
+    protected ContentRepository createRepository() {
+        fs = TestHelpers.createFileStore();//★
+        store = new SegmentNodeStore(fs);//★
+        return new Oak(store).with(new InitialContent())
+            .with(new OpenSecurityProvider())
+            .with(new LowCostOrderedPropertyIndexProvider())
+            .with(new OrderedPropertyIndexEditorProvider())
+            .createContentRepository();
+    }
+
+    @After
+    public void teardown() throws Throwable {//★
+        fs.flush();//★
+        fs.close();//★
+    }
 
     @Override
     protected void createTestIndexNode() throws Exception {

@@ -44,6 +44,8 @@ import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.plugins.index.property.PropertyIndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.property.PropertyIndexLookup;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.query.index.FilterImpl;
 import org.apache.jackrabbit.oak.spi.commit.CommitHook;
 import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
@@ -60,6 +62,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+import forstudy.PocMarking;
+import forstudy.TestHelpers;
+
+@PocMarking
 public class AsyncIndexUpdateTest {
 
     // TODO test index config deletes
@@ -90,7 +96,8 @@ public class AsyncIndexUpdateTest {
      */
     @Test
     public void testAsync() throws Exception {
-        NodeStore store = new MemoryNodeStore();
+        FileStore fs = TestHelpers.createFileStore();//★
+        NodeStore store = new SegmentNodeStore(fs);//★
         IndexEditorProvider provider = new PropertyIndexEditorProvider();
 
         NodeBuilder builder = store.getRoot().builder();
@@ -98,6 +105,10 @@ public class AsyncIndexUpdateTest {
                 "rootIndex", true, false, ImmutableSet.of("foo"), null)
                 .setProperty(ASYNC_PROPERTY_NAME, "async");
         builder.child("testRoot").setProperty("foo", "abc");
+
+        builder.child("testRoot").child("testChild").setProperty("foo", "defg");
+
+        builder.child("hogeRoot").setProperty("foo", "defg");
 
         // merge it back in
         store.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
@@ -114,6 +125,9 @@ public class AsyncIndexUpdateTest {
 
         PropertyIndexLookup lookup = new PropertyIndexLookup(root);
         assertEquals(ImmutableSet.of("testRoot"), find(lookup, "foo", "abc"));
+
+        fs.flush();//★
+        fs.close();//★
     }
 
     /**
@@ -396,6 +410,77 @@ public class AsyncIndexUpdateTest {
         assertNoConflictMarker(builder);
     }
 
+    @Test
+    public void _failOnConflict() throws Exception {
+        final Map<Thread, Semaphore> locks = Maps.newIdentityHashMap();
+        FileStore fs = TestHelpers.createFileStore();
+        NodeStore store = new SegmentNodeStore(fs) {
+            @Nonnull
+            @Override
+            public NodeState merge(@Nonnull NodeBuilder builder,
+                    @Nonnull CommitHook commitHook, @Nullable CommitInfo info)
+                    throws CommitFailedException {
+                Semaphore s = locks.get(Thread.currentThread());
+                if (s != null) {
+                    s.acquireUninterruptibly();
+                }
+                return super.merge(builder, commitHook, info);
+            }
+        };
+        IndexEditorProvider provider = new PropertyIndexEditorProvider();
+
+        NodeBuilder builder = store.getRoot().builder();
+        createIndexDefinition(builder.child(INDEX_DEFINITIONS_NAME), "foo",
+                false, ImmutableSet.of("foo"), null, TYPE,
+                Collections.singletonMap(ASYNC_PROPERTY_NAME, "async"));
+
+        builder.child("test").setProperty("foo", "a");
+
+        store.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        final AsyncIndexUpdate async = new AsyncIndexUpdate("async", store,
+                provider);
+        async.run();
+
+        builder = store.getRoot().builder();
+        builder.child("test").setProperty("foo", "b");
+        store.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                async.run();
+            }
+        });
+        Semaphore s = new Semaphore(0);
+        locks.put(t, s);
+        t.start();
+
+        // make some unrelated changes to trigger indexing
+        builder = store.getRoot().builder();
+        builder.setChildNode("dummy").setProperty("foo", "bar");
+        store.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        while (!s.hasQueuedThreads()) {
+            Thread.yield();
+        }
+
+        // introduce a conflict
+        builder = store.getRoot().builder();
+        builder.getChildNode(INDEX_DEFINITIONS_NAME).getChildNode("foo")
+                .getChildNode(":index").child("a").remove();
+        store.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        s.release(100);
+        t.join();
+
+        builder = store.getRoot().builder();
+        assertNoConflictMarker(builder);
+
+        fs.flush();
+        fs.close();
+    }
+
     private void assertNoConflictMarker(NodeBuilder builder) {
         for (String name : builder.getChildNodeNames()) {
             if (name.equals(ConflictAnnotatingRebaseDiff.CONFLICT)) {
@@ -411,7 +496,9 @@ public class AsyncIndexUpdateTest {
      */
     @Test
     public void recoverFromMissingCpRef() throws Exception {
-        MemoryNodeStore store = new MemoryNodeStore();
+        FileStore fs = TestHelpers.createFileStore();
+        NodeStore store = new SegmentNodeStore(fs);
+
         IndexEditorProvider provider = new PropertyIndexEditorProvider();
 
         NodeBuilder builder = store.getRoot().builder();
@@ -433,6 +520,9 @@ public class AsyncIndexUpdateTest {
         new AsyncIndexUpdate("async", store, provider).run();
         checkPathExists(store.getRoot(), INDEX_DEFINITIONS_NAME, "rootIndex",
                 INDEX_CONTENT_NODE_NAME, "def", "testAnother");
+
+        fs.flush();
+        fs.close();
     }
 
     @Test

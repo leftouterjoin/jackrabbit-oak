@@ -36,7 +36,8 @@ import java.util.Set;
 import org.apache.jackrabbit.oak.plugins.index.AsyncIndexUpdate;
 import org.apache.jackrabbit.oak.plugins.index.IndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateProvider;
-import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStore;
+import org.apache.jackrabbit.oak.plugins.segment.file.FileStore;
 import org.apache.jackrabbit.oak.query.QueryEngineSettings;
 import org.apache.jackrabbit.oak.query.ast.SelectorImpl;
 import org.apache.jackrabbit.oak.query.index.FilterImpl;
@@ -51,12 +52,15 @@ import org.junit.Test;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-;
+import forstudy.PocMarking;
+import forstudy.TestHelpers;
 
 /**
  * Test the asynchronous reindexing ability of an synchronous index
  */
+@PocMarking
 public class AsyncPropertyIndexTest {
+	public AsyncPropertyIndexTest SRC_REF;//★
 
     private IndexEditorProvider provider = new PropertyIndexEditorProvider();
 
@@ -64,7 +68,8 @@ public class AsyncPropertyIndexTest {
 
     @Test
     public void testAsyncPropertyLookup() throws Exception {
-        NodeStore store = new MemoryNodeStore();
+        FileStore fs = TestHelpers.createFileStore();//★
+        NodeStore store = new SegmentNodeStore(fs);//★
 
         NodeBuilder builder = store.getRoot().builder();
 
@@ -110,6 +115,9 @@ public class AsyncPropertyIndexTest {
         f = createFilter(head, NT_BASE);
         lookup = new PropertyIndexLookup(head);
         assertEquals(ImmutableSet.of("b", "c"), find(lookup, "foo", "def", f));
+
+        fs.flush();//★
+        fs.close();//★
     }
 
     private static FilterImpl createFilter(NodeState root, String nodeTypeName) {
