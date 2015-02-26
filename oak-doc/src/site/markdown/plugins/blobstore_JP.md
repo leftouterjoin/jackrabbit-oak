@@ -20,8 +20,7 @@
 The Oak BlobStore is similar to the Jackrabbit 2.x DataStore. However, there are a 
 few minor problems the BlobStore tries to address.
 Because, for the Jackrabbit DataStore:  
-OakのBlobStoreはJackrabbit 2.x DataStoreに似ています。しかしながらBlobStoreの小さな問題が
-に対処しようとしています。
+OakのBlobStoreはJackrabbit 2.x DataStoreに似ています。しかしながらBlobStoreの小さな問題に対処しようとしています。
 なぜならば、Jackrabbit DataStoreは
 
 * a temporary file is created when adding a large binary, 
@@ -51,7 +50,7 @@ OakのBlobStoreはJackrabbit 2.x DataStoreに似ています。しかしなが�
 	一部のデータベース(MySQLの)のDataStoreで、バイナリは完全にメモリに読み込まれるためアウト·オブ·メモリとなります。
 
 * binaries that are similar are always stored separately no matter what  
-	同じようなバイナリもかならず別々に保存されます。
+	同じようなバイナリにも関わらず別々に保存されます。
 
 Those problems are solved in Oak BlobStores, because binaries are split
 into blocks of 2 MB. This is similar to how [DropBox works internally][1].
@@ -93,19 +92,19 @@ Oakはマークアンドスイープベースのガベージコレクション�
        interval. So only those blob references are fetched which are 
        last modified say 24 hrs (default) ago.  
 		BlobStoreマーク - GCロジックは、BlobStoreに存在するすべてのblob参照を記録します。
-		そうすることで、指定した時間間隔よりも古いものblobを考慮します。
+		そうすることで、指定した時間間隔よりも古いものblobを対象とします。
 		つまり、最終変更が24時間(デフォルト)前のblob参照がフェッチされます。
     2. Mark NodeStore - GC logic would make a record of all the blob
        references which are referred by any node present in NodeStore.
        Note that any blob references from old revisions of node would also be 
        considered as a valid references.  
 		NodeStoreマーク - GCロジックはNodeStore内の任意のノードに存在によって参照されるすべてのblob参照の記録になります。
-		ノードの古いリビジョンからすべてのblob参照は、有効な参照としてみなされることに注意してください。
+		ノードの古いリビジョンからすべてのblob参照は、有効な参照として対象とされることに注意してください。
 
 2. Sweep Phase - In this phase all blob references form Mark BlobStore phase 
     which were not found in Mark NodeStore part would considered as GC candidates
     and would be deleted.  
-	スィープフェーズ - このフェーズでは、すべてのblob参照は、マークNodeStore部には見られなかったマークBlobStoreフェーズがGCの候補として考慮し削除される形成する。
+	スイープフェーズ - このフェーズでは、すべてのblob参照は、マークBlobStoreフェーズのマークNodeStoreで見つからなかった部分をGCの候補とし削除する。
 
 Support for Jackrabbit 2 DataStore
 ### Jackrabbit 2 DataStoreのサポート
@@ -114,20 +113,28 @@ Jackrabbit 2 used [DataStore][2] to store blobs. Oak supports usage of such
 DataStore via `DataStoreBlobStore` wrapper. This allows usage of `FileDataStore` 
 and `S3DataStore` with Oak NodeStore implementations. 
 
-### NodeStore and BlobStore
+NodeStore and BlobStore
+### NodeStoreとBlobStore
 
 Currently Oak provides two NodeStore implementations i.e. `SegmentNodeStore` and `DocumentNodeStore`.
-Further Oak ships with multiple BlobStore implementations
+Further Oak ships with multiple BlobStore implementations  
+現在Oakは2つのNodeStoreの実装を提供します。i.e. `SegmentNodeStore` と `DocumentNodeStore` です。
 
-1. `FileBlobStore` - Stores the file contents in chunks on file system
+1. `FileBlobStore` - Stores the file contents in chunks on file system  
+	`FileBlobStore` - ファイルシステム上にチャンクでファイルコンテンツを保存します。
 2. `MongoBlobStore` - Stores the file content in chunks in Mongo. Typically used with
-   `DocumentNodeStore` when running on Mongo by default
+   `DocumentNodeStore` when running on Mongo by default  
+	`MongoBlobStore` - Mongo上にチャンクでファイルコンテンツを保存します。一般的に Mongoで実行する際、 `DocumentNodeStore` とともに使用します。
 3. `FileDataStore` (with wrapper) - Stores the file on file system without breaking it into
    chunks. Mostly used when blobs have to shared between multiple repositories. Also used by 
-   default when migrating Jackrabbit 2 repositories to Oak
-4. `S3DataStore` (with wrapper) - Stores the file in Amazon S3
+   default when migrating Jackrabbit 2 repositories to Oak  
+	`FileDataStore` (with wrapper) - ファイルシステム上にチャンク無しでファイルコンテンツを保存します。主にblobを複数のリポジトリ間で共有する必要がある際に使用されます。
+	OakにJackrabbitの2のリポジトリを移行する場合にもデフォルトで使用されます。
+4. `S3DataStore` (with wrapper) - Stores the file in Amazon S3  
+	`S3DataStore` (with wrapper) - Amazon S3上にファイルを保存します。
 
-In addition there are some more implementations which are considered **experimental**
+In addition there are some more implementations which are considered **experimental**  
+さらに、 **実験的** であると考えているいくつかのより多くの実装があります。
 
 1. `RDBBlobStore` - Stores the file chunks in database
 2. `CloudBlobStore` - Stores the file file chunks in cloud storage using the [JClouds BlobStore API][3].
@@ -136,28 +143,37 @@ In addition there are some more implementations which are considered **experimen
 
 Depending on NodeStore type and usage requirement these can be configured to use 
 a particular BlobStore implementation. For OSGi env refer to [Configuring DataStore/BlobStore]
-(../osgi_config.html#config-blobstore)
+(../osgi_config.html#config-blobstore)  
+NodeStoreタイプと使用要件に応じて、これらは、特定のBlobStore実装を使用するように構成することができます。
+
 
 #### SegmentNodeStore
 
 By default SegmentNodeStore does not require a BlobStore. Instead the binary content is
 directly stored as part of segment blob itself. Depending on requirements one of the following 
 can be used  
+デフォルトではSegmentNodeStoreはBlobStoreを必要としません。代わりに、バイナリコンテンツを直接セグメントblob自体の一部として保存されます。要件に応じて、以下のいずれかを使用することができます。
  
 * FileDataStore - This should be used if the blobs/binaries have to be shared between multiple
-  repositories. This would also be used when a JR2 repository is migrated to Oak
-* S3DataStore - This should be used when binaries are stored in Amazon S3 
+  repositories. This would also be used when a JR2 repository is migrated to Oak  
+	FileDataStore - blob/バイナリは、複数のリポジトリ間で共有されなければならない場合、これを使用すべきです。JR2リポジトリがOakに移行されたときに使用されます。
+* S3DataStore - This should be used when binaries are stored in Amazon S3  
+	S3DataStore - バイナリをAmazon S3に保管する必要がある場合に使用します。
 
 #### DocumentNodeStore
 
 By default DocumentNodeStore when running on Mongo uses `MongoBlobStore`. Depending on requirements 
 one of the following can be used  
+デフォルトのDocumentNodeStoreではMongo上で動作しているときは、 `MongoBlobStore` 使用します。要件に応じて、以下のいずれかを使用することができます。
                   
-* MongoBlobStore - Used by default
+* MongoBlobStore - Used by default  
+	MongoBlobStore - デフォルトで使用します。
 * FileDataStore - This should be used if the binaries have to be stored on the file system. This 
-  would also be used when a JR2 repository is migrated to Oak
+  would also be used when a JR2 repository is migrated to Oak  
+	FileDataStore - バイナリをファイルシステムに格納する場合に使用されるべきです。JR2リポジトリがOakに移行されたときに使用されます。
 * S3DataStore - This should be used when binaries are stored in Amazon S3. Typically used when running
-  in Amazon AWS
+  in Amazon AWS  
+	S3DataStore - バイナリをAmazon S3に保管する必要がある場合に使用します。一般的にAmazon AWSで実行する際に使用します。
 
 [1]: http://serverfault.com/questions/52861/how-does-dropbox-version-upload-large-files
 [2]: http://wiki.apache.org/jackrabbit/DataStore
