@@ -33,7 +33,10 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
+
+import forstudy.PocMarking;
 import junit.framework.Assert;
+
 import org.apache.jackrabbit.oak.api.Blob;
 import org.apache.jackrabbit.oak.plugins.blob.MarkSweepGarbageCollector;
 import org.apache.jackrabbit.oak.plugins.blob.SharedDataStore;
@@ -52,6 +55,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * Tests for MongoMK GC
  */
+@PocMarking
 public class MongoBlobGCTest extends AbstractMongoConnectionTest {
     private Clock clock;
 

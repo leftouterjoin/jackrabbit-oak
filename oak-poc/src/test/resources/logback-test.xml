@@ -35,12 +35,12 @@
     </encoder>
   </appender>
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+ <!--     <filter class="ch.qos.logback.classic.filter.LevelFilter">
         <level>INFO</level>
         <onMatch>ACCEPT</onMatch>
         <onMismatch>DENY</onMismatch>
     </filter>
-    <layout class="ch.qos.logback.classic.PatternLayout">
+-->    <layout class="ch.qos.logback.classic.PatternLayout">
       <Pattern>%d{yyyy/MM/dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</Pattern>
     </layout>
   </appender>

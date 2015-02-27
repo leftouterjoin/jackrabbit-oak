@@ -29,6 +29,8 @@ import javax.annotation.Nonnull;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+import forstudy.PocMarking;
+
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.plugins.document.util.TimingDocumentStoreWrapper;
 import org.apache.jackrabbit.oak.plugins.document.util.Utils;
@@ -57,6 +59,7 @@ import static org.junit.Assert.assertTrue;
  * Test for OAK-1791.
  */
 @RunWith(Parameterized.class)
+@PocMarking
 public class VersionGCWithSplitTest {
 
     private DocumentStoreFixture fixture;
