@@ -126,7 +126,7 @@ public class Oak {
     public static final String DEFAULT_WORKSPACE_NAME = "default";
 
     private final NodeStore store;
-    
+
     private final List<RepositoryInitializer> initializers = newArrayList();
 
     private QueryEngineSettings queryEngineSettings = new QueryEngineSettings();
@@ -313,7 +313,7 @@ public class Oak {
     /**
      * Flag controlling the asynchronous indexing behavior. If false (default)
      * there will be no background indexing happening.
-     * 
+     *
      */
     private boolean asyncIndexing = false;
 
@@ -555,7 +555,7 @@ public class Oak {
                     PropertyIndexAsyncReindexMBean.class, asyncPI,
                     PropertyIndexAsyncReindexMBean.TYPE, name));
         }
-        
+
         regs.add(registerMBean(whiteboard, NodeCounterMBean.class,
                 new NodeCounter(store), NodeCounterMBean.TYPE, "nodeCounter"));
 
@@ -619,7 +619,6 @@ public class Oak {
 				RevisionGCMBean.TYPE,
 				"Document node store revision garbage collection"));
 
-        // [TODO] Register PropertyIndexAsyncReindexMBean for RepositoryManager
         // [TODO] Register FileStoreBackupRestoreMBean for RepositoryManager
 
         return new ContentRepositoryImpl(

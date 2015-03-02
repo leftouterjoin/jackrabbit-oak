@@ -2,6 +2,7 @@ package org.apache.jackrabbit.oak.plugins.document.gc;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.Stack;
@@ -10,7 +11,14 @@ import java.util.concurrent.TimeUnit;
 import javax.jcr.Repository;
 import javax.management.AttributeList;
 import javax.management.JMX;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanConstructorInfo;
+import javax.management.MBeanInfo;
+import javax.management.MBeanNotificationInfo;
+import javax.management.MBeanOperationInfo;
+import javax.management.MBeanParameterInfo;
 import javax.management.MBeanServer;
+import javax.management.MBeanServerConnection;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import javax.management.Query;
@@ -20,6 +28,7 @@ import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
+import org.apache.jackrabbit.oak.management.RepositoryManager;
 import org.apache.jackrabbit.core.data.FileDataStore;
 import org.apache.jackrabbit.oak.Oak;
 import org.apache.jackrabbit.oak.api.jmx.RepositoryManagementMBean;
@@ -101,11 +110,90 @@ public class Test2 {
 
 		DocumentNodeStore mns = mk.getNodeStore();
 
-		test14();
+		test20();
 
 		System.out.println("hoge");
 	}
 
+	private void test20() throws Throwable {
+		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+		ObjectName on = new ObjectName("org.apache.jackrabbit.oak:name=\"repository manager\",type=\"RepositoryManagement\",id=3");
+		RepositoryManagementMBean proxy = JMX.newMBeanProxy(mbs, on, RepositoryManagementMBean.class);
+		CompositeData o = proxy.startDataStoreGC(false);
+		System.out.println(o);
+		o = proxy.getRevisionGCStatus();
+		System.out.println(o);
+	}
+
+	private void test19() throws Throwable {
+		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+		ObjectName on = new ObjectName("org.apache.jackrabbit.oak:name=\"repository manager\",type=\"RepositoryManagement\",id=3");
+		Object o = mbs.getAttribute(on, "DataStoreGCStatus");
+		System.out.println(o);
+	}
+
+	private void test18() throws Throwable {
+		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+		ObjectName on = new ObjectName("org.apache.jackrabbit.oak:name=\"repository manager\",type=\"RepositoryManagement\",id=3");
+		Object o = mbs.invoke(on, "startDataStoreGC", new Object[]{true}, new String[] {boolean.class.getName()});
+		System.out.println(o);
+	}
+
+	private void test17() throws Throwable {
+		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+		ObjectName on = new ObjectName("org.apache.jackrabbit.oak:name=\"repository manager\",type=\"RepositoryManagement\",id=3");
+		showMBeanInfo(mbs.getMBeanInfo(on));
+	}
+
+	private void test16() throws Throwable {
+		/*
+		 * -Dcom.sun.management.jmxremote.port=8999
+		 * -Dcom.sun.management.jmxremote.ssl=false
+		 * -Dcom.sun.management.jmxremote.authenticate=false
+		 */
+		String hostname = "localhost:8999";
+		String serviceUrl = String.format("service:jmx:rmi:///jndi/rmi://%s/jmxrmi", hostname);
+		JMXConnector conn = JMXConnectorFactory.connect(new JMXServiceURL(serviceUrl));
+		MBeanServerConnection mbeanConn = conn.getMBeanServerConnection();
+		Set<ObjectInstance> instances = mbeanConn.queryMBeans(null,
+				Query.isInstanceOf(new StringValueExp(RepositoryManager.class.getName())));
+		Iterator<ObjectInstance> iterator = instances.iterator();
+		while (iterator.hasNext()) {
+			ObjectInstance instance = iterator.next();
+			if (instance.getClassName().equals(RepositoryManager.class.getName())) {
+//				RepositoryManagementMBean proxy = JMX.newMXBeanProxy(mbeanConn, instance.getObjectName(),
+//						RepositoryManager.class);
+//				CompositeData o = proxy.startDataStoreGC(false);
+				Object o = mbeanConn.invoke(instance.getObjectName(), "startDataStoreGC", new Object[]{true}, new String[] {boolean.class.getName()});
+				System.out.println(o);
+			}
+		}
+	}
+
+	private void test15() throws Throwable {
+		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+
+		ObjectName name = new ObjectName("org.apache.jackrabbit.oak:name=\"repository manager\",type=\"RepositoryManagement\",id=3");
+//		RepositoryManagementMBean proxy = JMX.newMXBeanProxy(mbs, name,
+//				RepositoryManagementMBean.class);
+//		CompositeData o = proxy.getRevisionGCStatus();
+
+		ObjectInstance instance = mbs.getObjectInstance(name);
+//		Object o = mbs.invoke(name, "getDataStoreGCStatus", null, null);
+
+//		Set<ObjectInstance> instances = mbs.queryMBeans(null,
+//				Query.isInstanceOf(new StringValueExp(org.apache.jackrabbit.oak.management.RepositoryManager.class.getName())));
+//
+//		Iterator<ObjectInstance> iterator = instances.iterator();
+//		while (iterator.hasNext()) {
+//			ObjectInstance instance = iterator.next();
+//			System.out.println(instance.getObjectName());
+//			ObjectInstance instance1 = mbs.getObjectInstance(instance.getObjectName());
+//
+//		}
+	}
+
+	// 全MBeanを表示してみる
 	private void test14() throws Throwable {
 		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 		Set<ObjectInstance> instances = mbs.queryMBeans(null,null);
@@ -115,8 +203,8 @@ public class Test2 {
 
 		while (!s.isEmpty()) {
 			ObjectInstance current = s.pop();
-			System.out.println("Class Name:\t" + current.getClassName());
-			Object o = mbs.getAttribute(current.getObjectName(), null);
+			System.out.printf("Class Name:\t%s\t%s\n", current.getClassName(), current.getObjectName());
+//			Object o = mbs.getAttribute(current.getObjectName(), null);
 
 //			Set<ObjectInstance> chileds = mbs.queryMBeans(current.getObjectName(), null);
 //			s.addAll(chileds);
@@ -126,7 +214,7 @@ public class Test2 {
 	private void test13() throws Throwable {
 		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 		Set<ObjectInstance> instances = mbs.queryMBeans(null,
-				Query.isInstanceOf(new StringValueExp(QueryEngineSettings.class.getName())));
+				Query.isInstanceOf(new StringValueExp(org.apache.jackrabbit.oak.management.RepositoryManager.class.getName())));
 
 		Iterator<ObjectInstance> iterator = instances.iterator();
 		while (iterator.hasNext()) {
@@ -204,18 +292,99 @@ public class Test2 {
 	private MBeanServer mbeanServer = ManagementFactory
 			.getPlatformMBeanServer();
 
-	static abstract class Finder {
-		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-		abstract void found(ObjectInstance instance);
-		public void traverse(Set<ObjectInstance> instances) {
-			Stack<ObjectInstance> processeeStack = new Stack<ObjectInstance>();
-			processeeStack.addAll(instances);
-			while (!processeeStack.isEmpty()) {
-				ObjectInstance current = processeeStack.pop();
-				found(current);
-				Set<ObjectInstance> chileds = mbs.queryMBeans(current.getObjectName(), null);
-				processeeStack.addAll(chileds);
-			}
-		}
-	}
+
+    private void showMBeanInfo(MBeanInfo info) throws Throwable {
+        String description = info.getDescription();
+        System.out.println("Description: " + description);
+
+        showMBeanAttributeInfo(info);
+        showMBeanConstructorInfo(info);
+        showMBeanOperationInfo(info);
+        showMBeanNotificationInfo(info);
+    }
+
+    private void showMBeanAttributeInfo(MBeanInfo info) {
+        MBeanAttributeInfo[] attributes = info.getAttributes();
+
+        if (attributes.length > 0) {
+            System.out.println("Attributes:");
+
+            for (MBeanAttributeInfo attribute: attributes) {
+                System.out.println("    Name: " + attribute.getName());
+                System.out.println("    Description: " + attribute.getDescription());
+                System.out.println("    Type: " + attribute.getType());
+                if (attribute.isReadable()) {
+                    if (attribute.isWritable()) {
+                        System.out.println("    Access: RW");
+                    } else {
+                        System.out.println("    Access: RO");
+                    }
+                } else {
+                    if (attribute.isWritable()) {
+                        System.out.println("    Access: WO");
+                    }
+                }
+                System.out.println();
+            }
+        }
+    }
+    private void showMBeanConstructorInfo(MBeanInfo info) {
+        MBeanConstructorInfo[] constructors = info.getConstructors();
+
+        if (constructors.length > 0) {
+            System.out.println("Constructors:");
+
+            for (MBeanConstructorInfo constructor: constructors) {
+                System.out.println("    Name: " + constructor.getName());
+                System.out.println("    Description: " + constructor.getDescription());
+                System.out.println("    Signature: ");
+                MBeanParameterInfo[] arguments = constructor.getSignature();
+                for (MBeanParameterInfo argument: arguments) {
+                    System.out.println("        Name: " + argument.getName()
+                                       + " Type: " + argument.getType());
+                }
+                System.out.println();
+            }
+        }
+    }
+
+    private void showMBeanOperationInfo(MBeanInfo info) {
+        MBeanOperationInfo[] operations = info.getOperations();
+
+        if (operations.length > 0) {
+            System.out.println("Operations:");
+
+            for (MBeanOperationInfo operation: operations) {
+                System.out.println("    Name: " + operation.getName());
+                System.out.println("    Description: " + operation.getDescription());
+                System.out.println("    Signature: ");
+                MBeanParameterInfo[] arguments = operation.getSignature();
+                for (MBeanParameterInfo argument: arguments) {
+                    System.out.println("        Name: " + argument.getName()
+                                       + " Type: " + argument.getType());
+                }
+                System.out.println("    Return Type: " + operation.getReturnType());
+                System.out.println();
+            }
+        }
+    }
+
+    private void showMBeanNotificationInfo(MBeanInfo info) {
+        MBeanNotificationInfo[] notifications = info.getNotifications();
+
+        if (notifications.length > 0) {
+            System.out.println("Notifications:");
+
+            for (MBeanNotificationInfo notification: notifications) {
+                System.out.println("    Name: " + notification.getName());
+                System.out.println("    Description: " + notification.getDescription());
+                System.out.println("    NotifType: ");
+                String[] types = notification.getNotifTypes();
+                for (String type: types) {
+                    System.out.println("        Type: " + type);
+                }
+                System.out.println();
+            }
+        }
+    }
 }
