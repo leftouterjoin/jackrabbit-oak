@@ -135,6 +135,8 @@ public class SegmentNodeStoreService extends ProxyNodeStore
 
     private ObserverTracker observerTracker;
 
+    private GCMonitorTracker gcMonitor;
+
     private ComponentContext context;
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL_UNARY,
@@ -209,6 +211,11 @@ public class SegmentNodeStoreService extends ProxyNodeStore
             size = System.getProperty(SIZE, "256");
         }
 
+        String cache = lookup(context, CACHE);
+        if (cache == null) {
+            cache = System.getProperty(CACHE);
+        }
+
         boolean pauseCompaction = toBoolean(lookup(context, PAUSE_COMPACTION),
                 PAUSE_DEFAULT);
         boolean cloneBinaries = toBoolean(
@@ -238,10 +245,13 @@ public class SegmentNodeStoreService extends ProxyNodeStore
         };
 
         OsgiWhiteboard whiteboard = new OsgiWhiteboard(context.getBundleContext());
+        gcMonitor = new GCMonitorTracker();
+        gcMonitor.start(whiteboard);
         Builder storeBuilder = FileStore.newFileStore(new File(directory))
-                .withCacheSize(Integer.parseInt(size))
+                .withCacheSize(Integer.parseInt(cache))
+                .withMaxFileSize(Integer.parseInt(size))
                 .withMemoryMapping("64".equals(mode))
-                .withWhiteBoard(whiteboard);
+                .withGCMonitor(gcMonitor);
         if (customBlobStore) {
             log.info("Initializing SegmentNodeStore with BlobStore [{}]", blobStore);
             store = storeBuilder.withBlobStore(blobStore).create()
@@ -323,6 +333,7 @@ public class SegmentNodeStoreService extends ProxyNodeStore
         unregisterNodeStore();
 
         observerTracker.stop();
+        gcMonitor.stop();
         delegate = null;
 
         store.close();
