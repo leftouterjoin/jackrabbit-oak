@@ -36,6 +36,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import forstudy.PocMarking;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.jackrabbit.oak.api.Blob;
 import org.apache.jackrabbit.oak.plugins.blob.BlobGarbageCollector;
@@ -59,6 +61,7 @@ import org.junit.Test;
 /**
  * Test for gc in a shared data store among hetrogeneous oak node stores.
  */
+@PocMarking("★[BLOB]クラスタ構成で共有ディスク")
 public class SharedBlobStoreGCTest {
     private Cluster cluster1;
     private Cluster cluster2;
@@ -186,7 +189,7 @@ public class SharedBlobStoreGCTest {
 
         /**
          * Creates the setup load with deletions.
-         * 
+         *
          * @throws Exception
          */
         public void init() throws Exception {

@@ -55,7 +55,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * Tests for MongoMK GC
  */
-@PocMarking
+@PocMarking("[BLOB]BlobStoreもMongo(デフォルト)のケース")
 public class MongoBlobGCTest extends AbstractMongoConnectionTest {
     private Clock clock;
 

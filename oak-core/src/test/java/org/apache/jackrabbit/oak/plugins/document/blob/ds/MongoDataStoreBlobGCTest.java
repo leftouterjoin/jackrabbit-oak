@@ -29,10 +29,13 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 
+import forstudy.PocMarking;
+
 /**
  * Test for MongoMK GC with {@link DataStoreBlobStore}
- * 
+ *
  */
+@PocMarking("★[BLOB]MongoBlobGCTestのサブクラス。OakFileDataStoreをBlobStoreとする。")
 public class MongoDataStoreBlobGCTest extends MongoBlobGCTest {
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {

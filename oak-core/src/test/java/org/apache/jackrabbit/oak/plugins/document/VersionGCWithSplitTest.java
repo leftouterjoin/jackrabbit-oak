@@ -59,7 +59,7 @@ import static org.junit.Assert.assertTrue;
  * Test for OAK-1791.
  */
 @RunWith(Parameterized.class)
-@PocMarking
+@PocMarking("★Test for OAK-1791.Runs a DocumentMK revision GC interleaved with a document split.")
 public class VersionGCWithSplitTest {
 
     private DocumentStoreFixture fixture;

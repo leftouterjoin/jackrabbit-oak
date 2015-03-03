@@ -59,7 +59,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-@PocMarking
+@PocMarking("★削除されたドキュメントのGC testGCDeletedDocument")
 public class VersionGarbageCollectorTest {
 
     private DocumentStoreFixture fixture;
