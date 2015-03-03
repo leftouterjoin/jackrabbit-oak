@@ -24,6 +24,7 @@ import org.apache.jackrabbit.oak.plugins.blob.datastore.DataStoreUtils;
 import org.apache.jackrabbit.oak.plugins.document.DocumentMK;
 import org.apache.jackrabbit.oak.plugins.document.MongoBlobGCTest;
 import org.apache.jackrabbit.oak.plugins.document.MongoUtils;
+import org.apache.jackrabbit.oak.spi.blob.FileBlobStore;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
@@ -35,24 +36,15 @@ import forstudy.PocMarking;
  * Test for MongoMK GC with {@link DataStoreBlobStore}
  *
  */
-@PocMarking("★[BLOB]MongoBlobGCTestのサブクラス。OakFileDataStoreを持つDataStoreBlobStoreをBlobStoreとする。")
-public class MongoDataStoreBlobGCTest extends MongoBlobGCTest {
-    @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
-        try {
-            Assume.assumeNotNull(DataStoreUtils.getBlobStore());
-        } catch (Exception e) {
-            Assume.assumeNoException(e);
-        }
-    }
-
+@PocMarking("★[BLOB]MongoBlobGCTestのサブクラス。FileBlobStoreをBlobStoreとする。")
+public class MongoDataStoreBlobStoreGC_FileBlobStoreTest extends MongoBlobGCTest {
     @Before
     @Override
     public void setUpConnection() throws Exception {
         mongoConnection = MongoUtils.getConnection();
         MongoUtils.dropCollections(mongoConnection.getDB());
         mk = new DocumentMK.Builder().clock(getTestClock()).setMongoDB(mongoConnection.getDB())
-                .setBlobStore(DataStoreUtils.getBlobStore()).open();
+                .setBlobStore(new FileBlobStore(DataStoreUtils.getHomeDir())).open();
     }
 
     @After

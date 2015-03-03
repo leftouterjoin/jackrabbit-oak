@@ -19,11 +19,13 @@ package org.apache.jackrabbit.oak.plugins.document.blob.ds;
 import java.io.File;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.jackrabbit.core.data.FileDataStore;
 import org.apache.jackrabbit.oak.plugins.blob.datastore.DataStoreBlobStore;
 import org.apache.jackrabbit.oak.plugins.blob.datastore.DataStoreUtils;
 import org.apache.jackrabbit.oak.plugins.document.DocumentMK;
 import org.apache.jackrabbit.oak.plugins.document.MongoBlobGCTest;
 import org.apache.jackrabbit.oak.plugins.document.MongoUtils;
+import org.apache.jackrabbit.oak.spi.blob.FileBlobStore;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
@@ -35,24 +37,23 @@ import forstudy.PocMarking;
  * Test for MongoMK GC with {@link DataStoreBlobStore}
  *
  */
-@PocMarking("★[BLOB]MongoBlobGCTestのサブクラス。OakFileDataStoreを持つDataStoreBlobStoreをBlobStoreとする。")
-public class MongoDataStoreBlobGCTest extends MongoBlobGCTest {
-    @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
-        try {
-            Assume.assumeNotNull(DataStoreUtils.getBlobStore());
-        } catch (Exception e) {
-            Assume.assumeNoException(e);
-        }
-    }
-
+@PocMarking("★[BLOB]MongoBlobGCTestのサブクラス。FileDataStoreを持つDataStoreBlobStoreをBlobStoreとする。")
+public class MongoDataStoreBlobStoreGC_FileDataStoreTest extends MongoBlobGCTest {
     @Before
     @Override
     public void setUpConnection() throws Exception {
         mongoConnection = MongoUtils.getConnection();
         MongoUtils.dropCollections(mongoConnection.getDB());
+
+        FileDataStore fileDS = new FileDataStore();
+        fileDS.setMinRecordLength(4092);
+        File storeDir = new File(DataStoreUtils.getHomeDir());
+        fileDS.init(storeDir.getAbsolutePath());
+        DataStoreBlobStore bs = new DataStoreBlobStore(fileDS, true, 10);
+        bs.setMaxCachedBinarySize(10 * 1024 * 1024);
+
         mk = new DocumentMK.Builder().clock(getTestClock()).setMongoDB(mongoConnection.getDB())
-                .setBlobStore(DataStoreUtils.getBlobStore()).open();
+                .setBlobStore(bs).open();
     }
 
     @After

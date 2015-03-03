@@ -46,9 +46,12 @@ import org.junit.Test;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+import forstudy.PocMarking;
+
 /**
  * Tests a BlobStore implementation.
  */
+@PocMarking
 public abstract class AbstractBlobStoreTest {
 
     protected GarbageCollectableBlobStore store;
