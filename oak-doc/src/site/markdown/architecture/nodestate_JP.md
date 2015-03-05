@@ -50,7 +50,7 @@ oak-coreのNodeStateインタフェースで表されるようなノードステ
 これは、すべてのツリーコンテンツを管理するための統合された低レベルの抽象化を提供し、クライアントにより高レベルに見えるのOak APIのための基礎を築きます。
 
 The state of a node
-## ノードの状態
+## ノードステート
 
 A _node_ in Oak is an unordered collection of named properties and child
 nodes. As the content tree evolves through a sequence of revisions, a node
@@ -59,7 +59,7 @@ an _immutable_ snapshot of a specific state of a node and the subtree beneath
 it.
 Oakの_ノード_は名前付きプロパティと子ノードの順序不同のコレクションです。
 コンテンツツリーは、リビジョンのシーケンスが進化するにつれて、その中のノードは、異なる一連の状態を通過します。
-_ノードステート_はノードの特定の状態とその下のサブツリーの_不変_スナップショットです。
+_ノードステート_ はノードの特定の状態とその下のサブツリーの_不変_スナップショットです。
 
 As an example, the following diagram shows two revisions of a content tree,
 the first revision consists of five nodes, and in the second revision a
@@ -68,7 +68,10 @@ can be shared across revisions, while only the modified nodes and their
 ancestors up to the root (shown in yellow) need to be updated to reflect
 the change. This way both revisions remain readable at all times without
 the implementation having to make a separate copy of the entire repository
-for each revision.
+for each revision.  
+例として、次の図は、コンテンツツリーの2つのリビジョンを示し、最初のリビジョンは、5つのノードで構成され、第2リビジョンで第6ノードがサブツリーの一つに追加されます。
+変更済みノードと(黄色で表示)ルート以下のその祖先は変更が反映されて更新されているが、変更されていないサブツリーはリビジョン間で共有することができます。
+このように、両リビジョンは、各リビジョンのリポジトリ全体の別々のコピーの作成を実装する必要することなく、読み出しが可能です。
 
 ![two revisions of a content tree](nodestate-r1.png?raw=true)
 
@@ -78,41 +81,60 @@ standalone content tree, a node state is _unnamed_ and does not contain
 information about it's location within a larger content tree. Instead each
 property and child node state is uniquely named within a parent node state.
 An algorithm that needs to know the path of a node can construct it from
-the encountered names as it descends the tree structure.
+the encountered names as it descends the tree structure.  
+ルートノードの特殊なケースを避けるためと、再帰的にスタンドアロンのコンテンツツリーとして各サブツリーを処理することができるアルゴリズムを簡単に記述するために、ノードステートは _unnamed_ で、大きなコンテンツツリー内の場所についての情報は含まれていません。
+代わりに、各プロパティと子ノードステートが一意に親ノードステート内で与えられます。
+ノードのパスを知っている必要のあるアルゴリズムは、ツリー構造を降下し、遭遇した名前からノード構築することができる。
 
 Since node states are immutable, they are also easy to keep _thread-safe_.
 Implementations that use mutable data structures like caches or otherwise
 aren't thread-safe by default, are expected to use other mechanisms like
-synchronization to ensure thread-safety.
+synchronization to ensure thread-safety.  
+ノードステートは不変であるので、 _thread-safe_ を維持することが容易です。
+キャッシュなどのような変更可能なデータ構造を使用する実装は、デフォルトでスレッドセーフはありません。
+スレッドセーフを確保するために、同期のような他のメカニズムを使用することが期待されています。
 
 The NodeState interface
 ## NodeStateインタフェース
 
 The above design principles are reflected in the `NodeState` interface
 in the `org.apache.jackrabbit.oak.spi.state` package of `oak-core`. The
-interface consists of three sets of methods:
+interface consists of three sets of methods:  
+上記の設計原理は `oak-core` の `org.apache.jackrabbit.oak.spi.state` パッケージ内の `NodeState` インターフェイスに反映されています。
+インタフェースは、メソッドの三組で構成されています:
 
-  * Methods for accessing properties
-  * Methods for accessing child nodes
-  * The `exists` method for checking whether the node exists or is accessible
-  * The `builder` method for building modified states
-  * The `compareAgainstBaseState` method for comparing states
+  * Methods for accessing properties  
+	プロパティアクセスメソッド
+  * Methods for accessing child nodes  
+	子ノードアクセスメソッド
+  * The `exists` method for checking whether the node exists or is accessible  
+	ノードが存在するかアクセス可能かどうかをチェックするための `exists` メソッド
+  * The `builder` method for building modified states  
+	状態変更を構築するための `builder` メソッド
+  * The `compareAgainstBaseState` method for comparing states  
+	状態比較のための `compareAgainstBaseState` メソッド
 
 You can request a property or a child node by name, get the number of
 properties or child nodes, or iterate through all of them. Even though
 properties and child nodes are accessed through separate methods, they
 share the same namespace so a given name can either refer to a property
-or a child node, but not to both at the same time.
+or a child node, but not to both at the same time.  
+あなたは、名前でプロパティまたは子ノードを要求、プロパティまたは子ノードの数を取得することができ、またはそれらのすべてを反復処理することもできます。
+プロパティと子ノードが別々のメソッドを介してアクセスされても、与えられた名前で同じ名前空間を共有し、プロパティまたは子ノードを各々参照できますが、同時には不可能です。
 
 Iteration order of properties and child nodes is _unspecified but stable_,
 so that re-iterating through the items of a _specific NodeState instance_
 will return the items in the same order as before, but the specific ordering
 is not defined nor does it necessarily remain the same across different
-instances.
+instances.  
+プロパティと子ノードの反復順序は _不特定だが一定_ です。そのため _特定のNodeStateインスタンス_ の項目を再反復すると、以前と同じ順序で項目を返します。
+順序の特定は未定義で、必ずしも異なるインスタンス間で同じではない。
 
 The last three methods, `exists`, `builder` and `compareAgainstBaseState`,
 are covered in the next sections. See also the `NodeState` javadocs for
-more details about this interface and all its methods.
+more details about this interface and all its methods.  
+最後の3メソッド `exists`, `builder`, `compareAgainstBaseState` は次のセクションで説明します。
+このインタフェースと全てのメソッドについての詳細は、 `NodeState` javadocsを参照してください。
 
 Existence and iterability of node states
 ## ノードステートの存在と反復性
@@ -125,7 +147,12 @@ The purpose of this feature is to allow paths like `/foo/bar` to be traversed
 even if the current user only has read access to the `bar` node but not its
 parent `foo`. As a consequence it's even possible to access content like a
 fictional `/bar` subtree that doesn't exist at all. A piece of code for
-accessing such content could look like this:
+accessing such content could look like this:  
+`exists`メソッドは、常にコンテンツが存在するかどうかに関係なく任意のパスをトラバースすることができます。
+`getChildNode`メソッドは、任意の名前の子 `NodeState` インスタンスを返し、呼び出し側は、ノードが実際に存在するかどうかをチェックするために`exists`メソッドを使用することが期待されます。
+この機能の目的は、`/foo/bar` のようなパスを現在のユーザーが、` bar`ノードのみ読み取りアクセス可能で、親の `foo` が不可である場合でも、トラバース可能にするためです。
+結果として、それは全く存在しない架空の`/ bar`サブツリーのようなコンテンツにアクセスすることも可能です。
+そのようなコンテンツにアクセスするためのコードの一部はこのようになります：
 
 ```java
 NodeState root = ...;
@@ -140,7 +167,8 @@ assert !baz.exists();
 ```
 
 The following diagram illustrates such a content tree, both as the raw
-content that simply exists and as an access controlled view of that tree:
+content that simply exists and as an access controlled view of that tree:  
+次の図は、生コンテンツとして単に存在しているコンテンツツリーと、アクセス制御されたビューを示しています。
 
 ![content tree with and without access control](nodestate-r2.png?raw=true)
 
@@ -151,6 +179,10 @@ property will only show up when listing the child nodes or properties of its
 parent. In other words, a node or a property is _iterable_ only if both it
 and its parent are readable. For example, attempts to list properties or
 child nodes of the node `foo` will show up empty:
+ノードが欠落している場合、`exists`メソッドが`false`を返します、従って、それが存在しないか保護された読み取りで、そのプロパティ、子ノードを何もリストすることはできません。
+一方で、読み取り不可ノードまたはプロパティは、子ノードまたはその親のプロパティのリストで現れます。
+つまり、ノードまたはプロパティが自身とその親の両方が読み取り可能である場合にのみ_iterable_です。
+例えば、`foo`ノードの子プロパティやノードをリストしようとして空にとなります:
 
 ```java
 assert !foo.getProperties().iterator().hasNext();
@@ -159,7 +191,8 @@ assert !foo.getChildNodeEntries().iterator().hasNext();
 
 Note that without some external knowledge about the accessibility of a child
 node like `bar` there's no way for a piece of code to distinguish between
-the existing but non-readable node `foo` and the non-existing node `baz`.
+the existing but non-readable node `foo` and the non-existing node `baz`.  
+`bar`のような子ノードのアクセシビリティについて一部の外部知識がなくても、既存のが、読み取り不可ノード`foo`などと無効ノード`baz`を区別するために方法はありませんので注意してください。
 
 Building new node states
 ## 新しいノードステートの構築
@@ -167,25 +200,35 @@ Building new node states
 Since node states are immutable, a separate builder interface,
 `NodeBuilder`, is used to construct new, modified node states. Calling
 the `builder` method on a node state returns such a builder for
-modifying that node and the subtree below it.
+modifying that node and the subtree below it.  
+ノードステートは不変であるため、別個のビルダーインタフェース`NodeBuilder`を、新規、変更されたノードステートを構成するために使用します。
+ノードステートの`builder`メソッドを呼び出すと、そのノードとその下のサブツリーを変更するためのビルダーを返します。
 
 A node builder can be thought of as a _mutable_ version of a node state.
 In addition to property and child node access methods like the ones that
 are already present in the `NodeState` interface, the `NodeBuilder`
 interface contains the following key methods:
+ノードビルダは、ノードステートの_mutable_版と考えることができます。
+すでに`NodeState`インタフェースに存在しているもののようなプロパティと子ノードのアクセス方法に加えて、` NodeBuilder`インターフェイスは、次の主要なメソッドが含まれています:
 
-  * The `setProperty` and `removeProperty` methods for modifying properties
-  * The `getChildNode` method for accessing or modifying an existing subtree
+  * The `setProperty` and `removeProperty` methods for modifying properties  
+	`setProperty`と`removeProperty`メソッドはプロパティを変更します。
+  * The `getChildNode` method for accessing or modifying an existing subtree  
+	`getChildNode`メソッドは既存のサブツリーをアクセス、変更します。
   * The `setChildNode` and `removeChildNode` methods for adding, replacing
-    or removing a subtree
+    or removing a subtree  
+	`setChildNode`と`removeChildNode`メソッドはサブツリーを追加、交換、削除します。
   * The `exists` method for checking whether the node represented by
-    a builder exists or is accessible
+    a builder exists or is accessible  
+	`exists`はビルダーによって表されるノードが存在するかアクセス可能かどうかをチェックします。
   * The `getNodeState` method for getting a frozen snapshot of the modified
-    content tree
+    content tree  
+	`getNodeState`メソッドは変更済みコンテンツツリーの凍結スナップショットを取得します。
 
 All the builders acquired from the same root builder instance are linked
 so that changes made through one instance automatically become visible in the
-other builders. For example:
+other builders. For example:  
+1インスタンスを介して行われた変更は自動的に他のビルダーで見えるように、同じルートビルダー·インスタンスから取得したすべてのビルダーがリンクされています。例えば:
 
 ```java
 NodeBuilder rootBuilder = root.builder();
@@ -207,11 +250,16 @@ especially if there are many changes in the builder, so the method should
 generally only be used as the last step after all intended changes have
 been made. Meanwhile the accessors in the `NodeBuilder` interface can be
 used to provide efficient read access to the current state of the tree
-being modified.
+being modified.  
+`getNodeState`メソッドは、ビルダーの現在の状態の凍結、不変のスナップショットを返します。
+そのようなスナップショットを提供することは、この方法は一般的にだけ結局意図の変更が行われた最後のステップとして使用する必要がありますので、ビルダーに多くの変更が存在する場合は特に、やや高価になります。
+一方、`NodeBuilder`インタフェースのアクセサは、変更されているツリーの現在の状態の効率的な読み取りアクセスを提供できます。
 
 The node states constructed by a builder often retain an internal reference
 to the base state used by the builder. This allows common node state
-comparisons to perform really well as described in the next section.
+comparisons to perform really well as described in the next section.  
+ビルダーによって構成されたノードステートは、多くの場合、ビルダーによって使用されるベースステートへの内部リファレンスを保持します。
+これは共通的なノードステート比較の実行が可能になり、次のセクションで説明します。
 
 Comparing node states
 ## ノードステート比較
@@ -219,14 +267,20 @@ Comparing node states
 As a node evolves through a sequence of states, it's often important to
 be able to tell what has changed between two states of the node. This
 functionality is available through the `compareAgainstBaseState` method.
-The method takes two arguments:
+The method takes two arguments:  
+ノードは状態の一連の進化するにつれて、ノードの2つの状態の間で変更が分かるようするために重要です。
+この機能は、`compareAgainstBaseState`メソッドを介して利用可能です。
+このメソッドは2つの引数を取ります。
 
   * A _base state_ for the comparison. The comparison will report all
     changes necessary for moving from the given base state to the node
-    state on which the comparison method is invoked.
+    state on which the comparison method is invoked.  
+	比較のための_base state_。比較は、比較メソッドが呼び出されているノードステートに与えられたベースステートから移動するために必要なすべての変更を報告します。
   * A `NodeStateDiff` instance to which all detected changes are reported.
     The diff interface contains callback methods for reporting added,
-    modified or removed properties or child nodes.
+    modified or removed properties or child nodes.  
+	`NodeStateDiff`インスタンスはその検出されたすべての変更が報告されます。  
+	diffインターフェースは、追加されたプロパティまたは子ノードを変更または削除報告するためのコールバックメソッドが含まれています。
 
 The comparison method can actually be used to compare any two nodes, but the
 implementations of the method are typically heavily optimized for the case
@@ -234,7 +288,10 @@ when the given base state actually is an earlier version of the same node.
 In practice this is by far the most common scenario for node state comparisons,
 and can typically be executed in `O(d)` time where `d` is the number of
 changes between the two states. The fallback strategy for comparing two
-completely unrelated node states can be much more expensive.
+completely unrelated node states can be much more expensive.  
+比較メソッドは、実際には2つのノードを比較するために使用することができます。このメソッドの実装は、一般的に重く、与えられたベースステートは実際には同じノードの以前のバージョンである場合に最適化されています。
+実際には、これは、ノード状態の比較のためにはるかに最も一般的なシナリオによるものであり、一般的に、2のノードステートの変更数が`d`であるときの`O(d)` 時間で実行可能です。
+2つの完全に無関係のノードステートを比較するための後退戦略は、はるかに高価となります。
 
 An important detail of the `NodeStateDiff` mechanism is the `childNodeChanged`
 method that will get called if there can be _any_ changes in the subtree
@@ -243,7 +300,11 @@ to efficiently detect differences at any depth below the given nodes. On the
 other hand the `childNodeChanged` method is called only for the direct child
 node, and the diff implementation should explicitly recurse down the tree
 if it wants to know what exactly did change under that subtree. The code
-for such recursion typically looks something like this:
+for such recursion typically looks something like this:  
+`NodeStateDiff`メカニズムの重要事項は、`childNodeChanged`メソッドで、所定の子ノードから始まるサブツリーで_何らかの_変化があれば呼び出されます。
+比較メソッドは、効率的に与えられたノードの下の任意の深さにおける差異を検出することができる必要があります。
+一方、`childNodeChanged`メソッドのみが直接子ノードに対して呼び出されます、そのサブツリー下の変更を正確に知りたい場合、diffの実装はツリーを明示的に再帰的降下する必要があります
+そのような再帰のためのコードは、典型的に次のようになります。
 
     public void childNodeChanged(
             String name, NodeState before, NodeState after) {
@@ -256,7 +317,10 @@ within that subtree. The only hard guarantee is that if that method is *not*
 called for a subtree, then that subtree definitely has not changed, but in
 most common cases the `compareAgainstBaseState` implementation can detect
 such cases and thus avoid extra `childNodeChanged` calls. However it's
-important that diff handlers are prepared to deal with such events.
+important that diff handlers are prepared to deal with such events.  
+`childNodeChanged`メソッドは、実際にはサブツリー内の変更がない場合でも、いくつかのケースで呼び出される可能性があるため、パフォーマンス上の理由から注意してください。
+唯一の強固な保証は、そのメソッドが呼び出*されない*場合、サブツリーは間違いなく変更されていないではないということです。しかし、最も一般的なケースでは、`compareAgainstBaseState`の実装はそのようなケースを検出します。これにより余分な`childNodeChanged`呼び出しを回避することができます。
+しかし、差分ハンドラはこのようなイベントの対処に備えがあることは重要です。
 
 The commit hook mechanism
 ## コミットフックメカニズム
@@ -267,10 +331,16 @@ modifications like adding auto-created content or updating in-content indices.
 The _commit hook mechanism_ is designed for these purposes. An Oak instance
 has a list of commit hooks that it applies to all commits. A commit hook is
 in full control of what to do with the commit: it can reject the commit,
-pass it through as-is, or modify it in any way.
+pass it through as-is, or modify it in any way.  
+リポジトリは通常、コンテンツの種類が許可されているものを制御するための様々な制約があります。
+それは多くの場合、自動作成されたコンテンツの追加やコンテンツ内インデックス更新といった追加修正によるコンテンツ変更で注意したいでしょう。
+_コミットフックメカニズム_は、これらの目的のために設計されています。
+Oakインスタンスは、すべてのコミットに適用するコミットフックのリストを有しています。
+コミットフックがコミットをどうするかを完全に制御しています。それは、コミットリジェクトも可能で、そのまま受け流すことも、または任意の方法でそれを変更することもできます。
 
 All commit hooks implement the `CommitHook` interface that contains just
-a single `processCommit` method:
+a single `processCommit` method:  
+すべてのコミットフックは、単一の`processCommit`メソッドを含む`CommitHook`インターフェイスを実装しています:
 
     NodeState processCommit(NodeState before, NodeState after)
         throws CommitFailedException;
