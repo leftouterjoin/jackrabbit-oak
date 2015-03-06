@@ -35,10 +35,10 @@
     <logger name="org.apache.jackrabbit.oak.security.authentication" level="WARN"/>
 
     <root level="INFO">
-        <!--
         <appender-ref ref="console"/>
-        -->
+        <!--
         <appender-ref ref="file"/>
+        -->
     </root>
 
 </configuration>

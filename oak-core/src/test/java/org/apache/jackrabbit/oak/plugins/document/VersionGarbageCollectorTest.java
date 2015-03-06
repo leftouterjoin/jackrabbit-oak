@@ -42,10 +42,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.mongodb.DB;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoClientURI;
 
 import forstudy.PocMarking;
+import forstudy.TestHelpers;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
+import org.apache.jackrabbit.oak.plugins.document.util.MongoConnection;
 import org.apache.jackrabbit.oak.plugins.document.util.Utils;
 import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
 import org.apache.jackrabbit.oak.spi.commit.EmptyHook;
@@ -54,15 +60,13 @@ import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.stats.Clock;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-@RunWith(Parameterized.class)
 @PocMarking("★削除されたドキュメントのGC testGCDeletedDocument")
 public class VersionGarbageCollectorTest {
-
-    private DocumentStoreFixture fixture;
 
     private Clock clock;
 
@@ -70,36 +74,22 @@ public class VersionGarbageCollectorTest {
 
     private VersionGarbageCollector gc;
 
-    public VersionGarbageCollectorTest(DocumentStoreFixture fixture) {
-        this.fixture = fixture;
-    }
+	private static final String DB_NAME =  VersionGarbageCollectorTest.class.getSimpleName();
+	private static final String MONGO_URI = "mongodb://localhost:27017/" + DB_NAME;
 
-    @Parameterized.Parameters
-    public static Collection<Object[]> fixtures() throws IOException {
-        List<Object[]> fixtures = Lists.newArrayList();
-        fixtures.add(new Object[] { new DocumentStoreFixture.MemoryFixture() });
-
-        DocumentStoreFixture mongo = new DocumentStoreFixture.MongoFixture();
-        if (mongo.isAvailable()) {
-            fixtures.add(new Object[] { mongo });
-        }
-
-        DocumentStoreFixture rdb = new DocumentStoreFixture.RDBFixture();
-        if (rdb.isAvailable()) {
-            fixtures.add(new Object[] { rdb });
-        }
-        return fixtures;
-    }
-
-    @Before
-    public void setUp() throws InterruptedException {
+	@Before
+    public void setUp() throws Exception {
         clock = new Clock.Virtual();
-        store = new DocumentMK.Builder()
+        DocumentMK.Builder mkBuilder = new DocumentMK.Builder()
                 .clock(clock)
-                .setDocumentStore(fixture.createDocumentStore())
-                .setAsyncDelay(0)
-                .getNodeStore();
-        gc = store.getVersionGarbageCollector();
+                .setAsyncDelay(0);
+
+		MongoClient mongoClient = new MongoClient(new MongoClientURI(MONGO_URI, MongoConnection.getDefaultBuilder()));
+		DB mongoDB = mongoClient.getDB(DB_NAME);
+		mkBuilder.setMongoDB(mongoDB, 256, 16);
+
+		store = mkBuilder.getNodeStore();
+		gc = store.getVersionGarbageCollector();
 
         //Baseline the clock
         clock.waitUntil(Revision.getCurrentTimestamp());
@@ -109,6 +99,7 @@ public class VersionGarbageCollectorTest {
     public void tearDown() throws Exception {
         store.dispose();
         Revision.resetClockToDefault();
+		new MongoConnection(MONGO_URI).getDB().dropDatabase();
     }
 
     @Test
@@ -133,7 +124,7 @@ public class VersionGarbageCollectorTest {
         //1. Create nodes
         NodeBuilder b1 = store.getRoot().builder();
         b1.child("x").child("y");
-        b1.child("z");
+        b1.child("z").setProperty("HOGEX", "ほげほげ");
         store.merge(b1, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
         long maxAge = 1; //hours
@@ -146,6 +137,8 @@ public class VersionGarbageCollectorTest {
         //Remove x/y
         NodeBuilder b2 = store.getRoot().builder();
         b2.child("x").child("y").remove();
+//        b1.child("z").removeProperty("HOGEX");
+        b2.child("z").setProperty("HOGEX", "ふがふが");
         store.merge(b2, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
         store.runBackgroundOperations();
@@ -166,6 +159,7 @@ public class VersionGarbageCollectorTest {
         //4. Check that a revived doc (deleted and created again) does not get gc
         NodeBuilder b3 = store.getRoot().builder();
         b3.child("z").remove();
+        b3.child("z").setProperty("HOGEX", "やっぱほげほげ");
         store.merge(b3, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
         NodeBuilder b4 = store.getRoot().builder();
@@ -176,6 +170,7 @@ public class VersionGarbageCollectorTest {
         stats = gc.gc(maxAge*2, HOURS);
         assertEquals(0, stats.deletedDocGCCount);
 
+        System.out.println(TestHelpers.convertJsonFromNodeState(store.getRoot().builder().getNodeState()));
     }
 
     @Test
@@ -358,11 +353,9 @@ public class VersionGarbageCollectorTest {
         // simulate continuous writes once a second for one day
         // collect garbage older than one hour
         int hours = 24;
-        if (fixture instanceof DocumentStoreFixture.MongoFixture) {
-            // only run for 6 hours on MongoDB to
-            // keep time to run on a reasonable level
-            hours = 6;
-        }
+		// only run for 6 hours on MongoDB to
+		// keep time to run on a reasonable level
+        hours = 6;
         for (int i = 0; i < 3600 * hours; i++) {
             clock.waitUntil(start + i * 1000);
             builder = store.getRoot().builder();
