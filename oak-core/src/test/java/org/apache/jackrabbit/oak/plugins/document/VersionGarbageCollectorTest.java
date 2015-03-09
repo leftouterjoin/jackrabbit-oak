@@ -124,7 +124,7 @@ public class VersionGarbageCollectorTest {
         //1. Create nodes
         NodeBuilder b1 = store.getRoot().builder();
         b1.child("x").child("y");
-        b1.child("z").setProperty("HOGEX", "ほげほげ");
+        b1.child("z");
         store.merge(b1, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
         long maxAge = 1; //hours
@@ -137,8 +137,6 @@ public class VersionGarbageCollectorTest {
         //Remove x/y
         NodeBuilder b2 = store.getRoot().builder();
         b2.child("x").child("y").remove();
-//        b1.child("z").removeProperty("HOGEX");
-        b2.child("z").setProperty("HOGEX", "ふがふが");
         store.merge(b2, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
         store.runBackgroundOperations();
@@ -159,11 +157,60 @@ public class VersionGarbageCollectorTest {
         //4. Check that a revived doc (deleted and created again) does not get gc
         NodeBuilder b3 = store.getRoot().builder();
         b3.child("z").remove();
-        b3.child("z").setProperty("HOGEX", "やっぱほげほげ");
         store.merge(b3, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
         NodeBuilder b4 = store.getRoot().builder();
         b4.child("z");
+        store.merge(b4, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        clock.waitUntil(clock.getTime() + HOURS.toMillis(maxAge*2) + delta);
+        stats = gc.gc(maxAge*2, HOURS);
+        assertEquals(0, stats.deletedDocGCCount);
+    }
+
+    @Test
+    public void testGCDeletedProperty() throws Exception{
+        //1. Create nodes
+        NodeBuilder b1 = store.getRoot().builder();
+        b1.child("z").setProperty("HOGE", "ほげほげ");
+        b1.child("z").setProperty("FUGU", "ふぐ");
+        store.merge(b1, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        long maxAge = 1; //hours
+        long delta = TimeUnit.MINUTES.toMillis(10);
+        //1. Go past GC age and check no GC done as nothing deleted
+        clock.waitUntil(Revision.getCurrentTimestamp() + maxAge);
+        VersionGCStats stats = gc.gc(maxAge, HOURS);
+        assertEquals(0, stats.deletedDocGCCount);
+
+        //Remove HOGE
+        NodeBuilder b2 = store.getRoot().builder();
+        b2.child("z").removeProperty("HOGE");
+        store.merge(b2, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        store.runBackgroundOperations();
+
+        //2. Check that a deleted doc is not collected before
+        //maxAge
+        //Clock cannot move back (it moved forward in #1) so double the maxAge
+        clock.waitUntil(clock.getTime() + delta);
+        stats = gc.gc(maxAge*2, HOURS);
+        assertEquals(0, stats.deletedDocGCCount);
+
+        //3. Check that deleted doc does get collected post maxAge
+        clock.waitUntil(clock.getTime() + HOURS.toMillis(maxAge*2) + delta);
+
+        stats = gc.gc(maxAge*2, HOURS);
+        //removePropertyはNULLが設定されているだけで削除されているわけではない
+        assertEquals(0, stats.deletedDocGCCount);
+
+        //4. Check that a revived doc (deleted and created again) does not get gc
+        NodeBuilder b3 = store.getRoot().builder();
+        b3.child("z").removeProperty("FUGU");
+        store.merge(b3, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        NodeBuilder b4 = store.getRoot().builder();
+        b4.child("z").setProperty("FUGU", "ふぐふぐ");
         store.merge(b4, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
         clock.waitUntil(clock.getTime() + HOURS.toMillis(maxAge*2) + delta);
@@ -219,6 +266,44 @@ public class VersionGarbageCollectorTest {
         //Following would not work for Mongo as the delete happened on the server side
         //And entries from cache are not evicted
         //assertTrue(ImmutableList.copyOf(getDoc("/test2/foo").getAllPreviousDocs()).isEmpty());
+    }
+
+    @Test
+    // Split by revived doc (deleted and created again)
+    public void gcSplitDocsByNode() throws Exception{
+        long maxAge = 1; //hrs
+        long delta = TimeUnit.MINUTES.toMillis(10);
+
+        NodeBuilder b1 = store.getRoot().builder();
+        b1.child("test").child("foo").child("bar");
+        b1.child("test2").child("foo").child("boo");
+        store.merge(b1, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        //Commit on a node which has a child and where the commit root
+        // is parent
+        for (int i = 0; i < NUM_REVS_THRESHOLD; i++) {
+            b1 = store.getRoot().builder();
+            b1.child("test2").child("foo").child("boo").remove();
+            store.merge(b1, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+            b1.child("test2").child("foo").child("boo");
+            store.merge(b1, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+        }
+        store.runBackgroundOperations();
+
+        List<NodeDocument> previousDocTestFoo2 =
+                ImmutableList.copyOf(getDoc("/test2/foo").getAllPreviousDocs());
+        List<NodeDocument> previousDocTestBoo =
+                ImmutableList.copyOf(getDoc("/test2/foo/boo").getAllPreviousDocs());
+
+        assertEquals(0, previousDocTestFoo2.size());
+        assertEquals(1, previousDocTestBoo.size());
+
+        assertEquals(SplitDocType.DEFAULT_LEAF, previousDocTestBoo.get(0).getSplitDocType());
+
+        clock.waitUntil(clock.getTime() + HOURS.toMillis(maxAge) + delta);
+        VersionGCStats stats = gc.gc(maxAge, HOURS);
+        assertEquals(1, stats.splitDocGCCount);
     }
 
     // OAK-1729

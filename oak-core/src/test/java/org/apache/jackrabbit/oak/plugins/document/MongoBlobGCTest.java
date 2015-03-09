@@ -48,6 +48,7 @@ import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
 import org.apache.jackrabbit.oak.spi.commit.EmptyHook;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.stats.Clock;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;
@@ -65,8 +66,8 @@ public class MongoBlobGCTest extends AbstractMongoConnectionTest {
         DocumentNodeStore s = mk.getNodeStore();
         NodeBuilder a = s.getRoot().builder();
 
-        int number = 10;
-        int maxDeleted = 5;
+        int number = 100;
+        int maxDeleted = 50;
         // track the number of the assets to be deleted
         List<Integer> processed = Lists.newArrayList();
         Random rand = new Random(47);
@@ -131,6 +132,7 @@ public class MongoBlobGCTest extends AbstractMongoConnectionTest {
         coll.remove(blobNodeObj);
     }
 
+    @Ignore
     @Test
     public void gcDirectMongoDelete() throws Exception {
         HashSet<String> set = setUp(true);
@@ -141,14 +143,18 @@ public class MongoBlobGCTest extends AbstractMongoConnectionTest {
     public void gcVersionDelete() throws Exception {
         HashSet<String> set = setUp(false);
         gc(set);
+        System.out.println("");
     }
 
+    @Ignore
     @Test
     public void gcDirectMongoDeleteWithInlined() throws Exception {
         HashSet<String> set = setUp(true);
         addInlined();
         gc(set);
     }
+
+    @Ignore
     @Test
     public void gcVersionDeleteWithInlined() throws Exception {
         HashSet<String> set = setUp(false);
