@@ -37,6 +37,7 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.MongoClientURI;
@@ -57,6 +58,7 @@ import org.apache.jackrabbit.oak.plugins.document.UpdateOp;
 import org.apache.jackrabbit.oak.plugins.document.UpdateOp.Key;
 import org.apache.jackrabbit.oak.plugins.document.UpdateOp.Operation;
 import org.apache.jackrabbit.oak.plugins.document.UpdateUtils;
+import org.apache.jackrabbit.oak.plugins.document.cache.CacheInvalidationStats;
 import org.apache.jackrabbit.oak.plugins.document.cache.ForwardingListener;
 import org.apache.jackrabbit.oak.plugins.document.cache.NodeDocOffHeapCache;
 import org.apache.jackrabbit.oak.plugins.document.cache.OffHeapCache;
@@ -153,8 +155,15 @@ public class MongoDocumentStore implements DocumentStore {
 
     private String lastReadWriteMode;
 
+    private final Map<String, String> metadata;
+
     public MongoDocumentStore(DB db, DocumentMK.Builder builder) {
-        checkVersion(db);
+        String version = checkVersion(db);
+        metadata = ImmutableMap.<String,String>builder()
+                .put("type", "mongo")
+                .put("version", version)
+                .build();
+
         nodes = db.getCollection(
                 Collection.NODES.toString());
         clusterNodes = db.getCollection(
@@ -209,7 +218,7 @@ public class MongoDocumentStore implements DocumentStore {
                 "maxDeltaForModTimeIdxSecs {}",maxReplicationLagMillis, maxDeltaForModTimeIdxSecs);
     }
 
-    private static void checkVersion(DB db) {
+    private static String checkVersion(DB db) {
         String version = db.command("buildInfo").getString("version");
         Matcher m = Pattern.compile("^(\\d+)\\.(\\d+)\\..*").matcher(version);
         if (!m.matches()) {
@@ -218,13 +227,15 @@ public class MongoDocumentStore implements DocumentStore {
         int major = Integer.parseInt(m.group(1));
         int minor = Integer.parseInt(m.group(2));
         if (major > 2) {
-            return;
+            return version;
         }
         if (minor < 6) {
             String msg = "MongoDB version 2.6.0 or higher required. " +
                     "Currently connected to a MongoDB with version: " + version;
             throw new RuntimeException(msg);
         }
+
+        return version;
     }
 
     private Cache<CacheValue, NodeDocument> createOffHeapCache(
@@ -250,10 +261,10 @@ public class MongoDocumentStore implements DocumentStore {
     }
 
     @Override
-    public void invalidateCache() {
+    public CacheInvalidationStats invalidateCache() {
         //TODO Check if we should use LinearInvalidator for small cache sizes as
         //that would lead to lesser number of queries
-        CacheInvalidator.createHierarchicalInvalidator(this).invalidateCache();
+        return CacheInvalidator.createHierarchicalInvalidator(this).invalidateCache();
     }
 
     @Override
@@ -920,6 +931,11 @@ public class MongoDocumentStore implements DocumentStore {
     @Override
     public CacheStats getCacheStats() {
         return cacheStats;
+    }
+
+    @Override
+    public Map<String, String> getMetadata() {
+        return metadata;
     }
 
     long getMaxDeltaForModTimeIdxSecs() {
