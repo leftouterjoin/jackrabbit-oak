@@ -82,11 +82,14 @@ Oakではこの場合、明示的に`Session.refresh()`を呼び出す事がで�
 > future versions of Oak. See [OAK-803](https://issues.apache.org/jira/browse/OAK-803) for further
 > details regarding session backwards compatibility and
 > [OAK-960](https://issues.apache.org/jira/browse/OAK-960) regarding in thread session
-> synchronisation.  
+> synchronisation.
+>
+> The `SessionMBean` provides further information on when a session is refreshed and wheter
+> a refresh will happen on the next access.  
 > 自動セッション同期は一過性機能であり、おそらくOakの将来のバージョンでは削除されます。
 > セッションの後方互換性に関する詳細については[OAK-803](https://issues.apache.org/jira/browse/OAK-803)を
 > セッション同期スレッドについては[OAK-960](https://issues.apache.org/jira/browse/OAK-960)を確認して下さい。
-
+> `SessionMBean` は、セッションが更新されたときに、リフレッシュは、次のアクセスで発生するかどうか、さらに情報を提供します。
 
 On Oak `Item.refresh()` is deprecated and will always cause an `Session.refresh()`. The former call
 will result in a warning written to the log in order to facilitate locating trouble spots.  
@@ -384,7 +387,7 @@ With Oak this method will only return a UUID when the node is referenceable, oth
 identifier is the UUID of the nearest referenceable ancestor with the relative path to the node.  
 Jackrabbit 2.xと対象的に, Oakの参照可能ノードにのみUUIDを持つように割り当てられます。
 Jackrabbit 2.xはUUIDはコンテンツ ノードが参照可能な時のみ可視であり、`jcr:uuid`プロパティとしてUUIDが公開されます。
-しかし`Node.getIdentifier()`は使用で、任意のノードのUUIDを取得することが可能です。
+しかし`Node.getIdentifier()`は使用により、任意のノードのUUIDを取得することが可能です。
 Oakのこのメソッドは、ノードが参照可能な時にのみUUIDを返し、そうでなければ、その識別子は、そのノードへの相対パスに最も近い参照可能な祖先のUUIDとなります。
 
 Manually adding a property with the name `jcr:uuid` to a non referenceable node might have
