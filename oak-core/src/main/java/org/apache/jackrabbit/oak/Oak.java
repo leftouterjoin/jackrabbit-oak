@@ -49,6 +49,7 @@ import javax.security.auth.login.LoginException;
 import org.apache.jackrabbit.oak.api.ContentRepository;
 import org.apache.jackrabbit.oak.api.ContentSession;
 import org.apache.jackrabbit.oak.api.Root;
+import org.apache.jackrabbit.oak.api.jmx.CacheStatsMBean;
 import org.apache.jackrabbit.oak.api.jmx.IndexStatsMBean;
 import org.apache.jackrabbit.oak.api.jmx.QueryEngineSettingsMBean;
 import org.apache.jackrabbit.oak.api.jmx.RepositoryManagementMBean;
@@ -620,6 +621,10 @@ public class Oak {
 				"Document node store revision garbage collection"));
 
         // [TODO] Register FileStoreBackupRestoreMBean for RepositoryManager
+
+        // Register CacheStatsMBean
+        regs.add(registerMBean(whiteboard, CacheStatsMBean.class,
+                dns.getDocumentStore().getCacheStats(), CacheStatsMBean.TYPE, "cacheStats"));
 
         return new ContentRepositoryImpl(
                 store,
